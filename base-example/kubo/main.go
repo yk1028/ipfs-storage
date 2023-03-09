@@ -135,35 +135,41 @@ func spawnEphemeral(ctx context.Context) (icore.CoreAPI, *core.IpfsNode, error) 
 
 func connectToPeers(ctx context.Context, ipfs icore.CoreAPI, peers []string) error {
 	var wg sync.WaitGroup
+	// make: memory 할당 및 초기화, slice, map, channel에서 사용, 포인터 반환 x
+	// peer.ID를 key, *peer.AddrInfo을 value로하는 peers길이 만큼의 map 할당 및 초기화
 	peerInfos := make(map[peer.ID]*peer.AddrInfo, len(peers))
 	for _, addrStr := range peers {
-		addr, err := ma.NewMultiaddr(addrStr)
+		addr, err := ma.NewMultiaddr(addrStr) // string 형태의 address를 byte[] 형태의 multiaddr format으로 변경 (go-multiaddr)
 		if err != nil {
 			return err
 		}
-		pii, err := peer.AddrInfoFromP2pAddr(addr)
+		pii, err := peer.AddrInfoFromP2pAddr(addr) //multiaddr을 AddrInfo로 변경 (libp2p2)
 		if err != nil {
 			return err
 		}
-		pi, ok := peerInfos[pii.ID]
-		if !ok {
-			pi = &peer.AddrInfo{ID: pii.ID}
-			peerInfos[pi.ID] = pi
+		pi, ok := peerInfos[pii.ID] // 위에서 make로 생성한 map에 값을 할당하기 위해 pii.ID로 주소 값을 가져옴
+		if !ok {                    // pii.ID에 해당하는 AddrInfo가 peerInfos에 없으면
+			pi = &peer.AddrInfo{ID: pii.ID} //pii.ID에 해당하는 AddrInfo 생성
+			peerInfos[pi.ID] = pi           //peerInfos에 추가
 		}
-		pi.Addrs = append(pi.Addrs, pii.Addrs...)
+		pi.Addrs = append(pi.Addrs, pii.Addrs...) // multiaddr에 pii의 주소 추가
 	}
 
-	wg.Add(len(peerInfos))
+	// TODO: ID가 어떻게 생성되는지..? 뭘 의미하는지 -> go-multiaddr 확인
+
+	wg.Add(len(peerInfos)) // WaitGroup에 대기중인 go routine 개수를 peerInfos 길이만큼 추가
 	for _, peerInfo := range peerInfos {
 		go func(peerInfo *peer.AddrInfo) {
-			defer wg.Done()
+			defer wg.Done() // 이 function 종료시 go routine 수행이 종료됨을 알림
+
+			//swarm connect 진행
 			err := ipfs.Swarm().Connect(ctx, *peerInfo)
 			if err != nil {
 				log.Printf("failed to connect to %s: %s", peerInfo.ID, err)
 			}
 		}(peerInfo)
 	}
-	wg.Wait()
+	wg.Wait() // 모든 peerInfo에 대한 swarm connect를 진행하는 go routine이 전부 종료될 때 까지 대기
 	return nil
 }
 
@@ -193,22 +199,22 @@ func main() {
 
 	fmt.Println(ctx)
 
-	ipfsA, nodeA, err := spawnEphemeral(ctx) // coreapi, node 생성
+	ipfsA, nodeA, err := spawnEphemeral(ctx) // 첫번째 ipfs coreapi, node 생성
 	if err != nil {
 		panic(fmt.Errorf("failed to spawn peer node: %s", err))
 	}
 
-	peerCidFile, err := ipfsA.Unixfs().Add(ctx, // coreapi를 활용하여 file 추가
+	peerCidFile, err := ipfsA.Unixfs().Add(ctx, // coreapi를 활용하여 file 저장
 		files.NewBytesFile([]byte("hello from ipfs 101 in Kubo")))
 	if err != nil {
 		panic(fmt.Errorf("could not add File: %s", err))
 	}
 
-	fmt.Printf("Added file to peer with CID %s\n", peerCidFile.String())
+	fmt.Printf("Added file to peer with CID %s\n", peerCidFile.String()) // 저장한 file의 CID 확인
 
 	// Spawn a node using a temporary path, creating a temporary repo for the run
 	fmt.Println("Spawning Kubo node on a temporary repo")
-	ipfsB, _, err := spawnEphemeral(ctx)
+	ipfsB, _, err := spawnEphemeral(ctx) // 두번째 ipfs coreapi, node 생성
 	if err != nil {
 		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
 	}
@@ -282,6 +288,7 @@ func main() {
 	fmt.Printf("Got directory back from IPFS (IPFS path: %s) and wrote it to %s\n", cidDirectory.String(), outputPathDirectory)
 
 	/// --- Part IV: Getting a file from the IPFS Network
+	/// nodeA, nodeB swarm connect로 연결하여 nodeA에 저장한 file을 cid를 통해 nodeB에서 확인
 
 	fmt.Println("\n-- Going to connect to a few nodes in the Network as bootstrappers --")
 

@@ -1,5 +1,5 @@
 # ipfs-storage
-- go-ipfs(kubo) library를 기반으로 customizing
+> go-ipfs(kubo) library를 기반으로 customizing
 
 ## test
 - [x] base example
