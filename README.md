@@ -11,3 +11,6 @@
 ### issue
 - libp2p의 rcmgv.LimitConfig 변경에 따른 kubo library 호환 문제
   - 3/7에 release된 kubo v0.19.0-rc1으로 해결
+
+- kubo library를 활용하여 private network setting 방법
+  - Repo에 SwarmKey 활용
