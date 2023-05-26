@@ -3,8 +3,8 @@
 
 ## test
 - [x] base example
-- [ ] ipfs node 1개 띄우기 및 file 추가, 조회
-- [ ] ipfs node 2개 띄워서 swarm connect
+- [x] ipfs node 1개 띄우기 및 file 추가, 조회
+- [x] ipfs node 2개 띄워서 swarm connect
 - [ ] private network 구성하기
 - [ ] peerlist 관리 가능한 형태로 만들기
 
